@@ -6,10 +6,10 @@ struct Arguments {
     /// The desided length for the password
     #[clap(short, long, value_parser, value_name = "LENGTH")]
     length: usize,
-    /// The complexity of the password
-    #[clap(short, long, value_parser, value_name = "COMPLEXITY")]
-    complexity: Option<usize>,
-    /// A custom dictionary for the password, if set the complexity parameter is ignored
+    /// The complexity of the password. Values allowed: 1 - Lowercase dictionary; 2 - Lowercase and uppercase dictionary; 3 - Lowercase, uppercase and digits dictionary; 4 - lowercase, uppercase, digits and symbols dictionary;
+    #[clap(short, long, value_parser = clap::value_parser!(u8).range(1..4), value_name = "COMPLEXITY")]
+    complexity: Option<u8>,
+    /// A custom dictionary for the password, if set the complexity parameter is ignored.
     #[clap(short, long, value_parser, value_name = "DICTIONARY")]
     dictionary: Option<String>
 }
@@ -27,10 +27,36 @@ fn main() {
         dictionary = input_dictionary.to_string();
     }
     else{
-        dictionary.push_str(&UPPERCASE);
-        dictionary.push_str(&LOWERCASE);
-        dictionary.push_str(&NUMBERS);
-        dictionary.push_str(&SYMBOLS);
+        if let Some(input_complexity) = args.complexity{
+            match input_complexity{
+                1 => {
+                    dictionary.push_str(&LOWERCASE);
+                },
+                2 => {
+                    dictionary.push_str(&UPPERCASE);
+                    dictionary.push_str(&LOWERCASE);
+                }
+                3 => {
+                    dictionary.push_str(&UPPERCASE);
+                    dictionary.push_str(&LOWERCASE);
+                    dictionary.push_str(&NUMBERS);
+                }
+                4 => {
+                    dictionary.push_str(&UPPERCASE);
+                    dictionary.push_str(&LOWERCASE);
+                    dictionary.push_str(&NUMBERS);
+                    dictionary.push_str(&SYMBOLS);
+                }
+                _ =>{}
+            }
+        }
+        else{
+            dictionary.push_str(&UPPERCASE);
+            dictionary.push_str(&LOWERCASE);
+            dictionary.push_str(&NUMBERS);
+            dictionary.push_str(&SYMBOLS);
+        }
+        
     }
 
     
