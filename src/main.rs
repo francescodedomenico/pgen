@@ -16,7 +16,7 @@ struct Arguments {
 
 fn main() {
     let args = Arguments::parse();
-    println!("{:?}", args);
+
     const UPPERCASE: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     const LOWERCASE: &str = "abcdefghijklmnopqrstuvwxyz";
     const NUMBERS: &str = "0123456789";
@@ -43,5 +43,5 @@ fn main() {
             dictionary.chars().nth(idx).unwrap() as char
         })
         .collect();
-    println!("{:?}", password);
+    println!("{}", password);
 }
