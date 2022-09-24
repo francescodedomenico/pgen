@@ -50,7 +50,7 @@ OPTIONS:
 ```
 By default the tool outputs on the standard output:
 ```shell
-pgen  -l 16 -c 3 -n 10
+$ pgen  -l 16 -c 3 -n 10
 ```
 ```shell
 ### PASSWORD 1 ###
