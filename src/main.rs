@@ -87,6 +87,28 @@ fn make_password(args: &Arguments, dictionary: &String, rng: &mut ThreadRng) -> 
         .collect();
     password
 }
+
+fn make_passwords_vector(
+    input_number: u64,
+    args: &Arguments,
+    dictionary: &String,
+    rng: &mut ThreadRng,
+) -> Vec<String> {
+    let mut passwords: Vec<String> = Vec::new();
+    for _i in 0..input_number {
+        let password: String = make_password(&args, &dictionary, rng);
+        passwords.push(password);
+    }
+    passwords
+}
+
+fn make_file_from_cwd(file_name: &str) -> File {
+    let temp_directory = env::current_dir().unwrap();
+    let temp_file = temp_directory.join(file_name);
+    let file = File::create(temp_file).unwrap();
+    file
+}
+
 fn main() {
     let args = Arguments::parse();
     let dictionary: String = make_dictionary(&args);
@@ -95,15 +117,10 @@ fn main() {
         // Multi password branch
         if let Some(input_output_file) = args.output_file.as_deref() {
             // File output branch
-            let temp_directory = env::current_dir().unwrap();
-            let temp_file = temp_directory.join(input_output_file);
-            let mut file = File::create(temp_file).unwrap();
+            let mut file = make_file_from_cwd(input_output_file);
             if args.json {
-                let mut passwords: Vec<String> = Vec::new();
-                for _i in 0..input_number {
-                    let password: String = make_password(&args, &dictionary, &mut rng);
-                    passwords.push(password);
-                }
+                let passwords: Vec<String> =
+                    make_passwords_vector(input_number, &args, &dictionary, &mut rng);
                 let to_write_buffer: String = serde_json::to_string_pretty(&passwords).unwrap();
                 writeln!(&mut file, "{}", to_write_buffer).unwrap();
             } else {
@@ -114,11 +131,8 @@ fn main() {
             }
         } else {
             if args.json {
-                let mut passwords: Vec<String> = Vec::new();
-                for _i in 0..input_number {
-                    let password: String = make_password(&args, &dictionary, &mut rng);
-                    passwords.push(password);
-                }
+                let passwords: Vec<String> =
+                    make_passwords_vector(input_number, &args, &dictionary, &mut rng);
                 let to_write_buffer: String = serde_json::to_string_pretty(&passwords).unwrap();
                 println!("{}", to_write_buffer);
             } else {
@@ -133,14 +147,10 @@ fn main() {
         let password: String = make_password(&args, &dictionary, &mut rng);
         if let Some(input_output_file) = args.output_file.as_deref() {
             // File output branch
-            let temp_directory = env::temp_dir();
-            let temp_file = temp_directory.join(input_output_file);
-            let mut file = File::create(temp_file).unwrap();
+            let mut file = make_file_from_cwd(input_output_file);
             if args.json {
                 // Json branch
-                let mut passwords: Vec<String> = Vec::new();
-                let password: String = make_password(&args, &dictionary, &mut rng);
-                passwords.push(password);
+                let passwords: Vec<String> = make_passwords_vector(1, &args, &dictionary, &mut rng);
                 let to_write_buffer: String = serde_json::to_string_pretty(&passwords).unwrap();
                 writeln!(&mut file, "{}", to_write_buffer).unwrap();
             } else {
@@ -149,13 +159,10 @@ fn main() {
         } else {
             if args.json {
                 // Json branch
-                let mut passwords: Vec<String> = Vec::new();
-                let password: String = make_password(&args, &dictionary, &mut rng);
-                passwords.push(password);
+                let passwords: Vec<String> = make_passwords_vector(1, &args, &dictionary, &mut rng);
                 let to_write_buffer: String = serde_json::to_string_pretty(&passwords).unwrap();
                 println!("{}", to_write_buffer);
-            }
-            else {
+            } else {
                 println!("### PASSWORD ###\n{}\n", password);
             }
         }
