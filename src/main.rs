@@ -81,11 +81,12 @@ fn main() {
     if let Some(input_number) = args.number {
         for i in 0..input_number {
             let password: String = make_password(&args, &dictionary, &mut rng);
-            println!("{}: {}", i, password);
+            println!("### PASSWORD {} ###\n{}", i+1, password);
             println!("\n");
         }
     } else {
         let password: String = make_password(&args, &dictionary, &mut rng);
         println!("{}", password);
     }
+    println!("\n");
 }
