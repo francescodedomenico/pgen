@@ -147,7 +147,17 @@ fn main() {
                 writeln!(&mut file, "### PASSWORD ###\n{}\n", password).unwrap();
             }
         } else {
-            println!("### PASSWORD ###\n{}\n", password);
+            if args.json {
+                // Json branch
+                let mut passwords: Vec<String> = Vec::new();
+                let password: String = make_password(&args, &dictionary, &mut rng);
+                passwords.push(password);
+                let to_write_buffer: String = serde_json::to_string_pretty(&passwords).unwrap();
+                println!("{}", to_write_buffer);
+            }
+            else {
+                println!("### PASSWORD ###\n{}\n", password);
+            }
         }
     }
 }
