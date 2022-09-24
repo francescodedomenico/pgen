@@ -19,7 +19,7 @@ struct Arguments {
     /// The complexity of the password. Values allowed: 1 - Lowercase dictionary; 2 - Lowercase and uppercase dictionary; 3 - Lowercase, uppercase and digits dictionary; 4 - lowercase, uppercase, digits and symbols dictionary;
     #[clap(short, long, value_parser = clap::value_parser!(u8).range(1..5), value_name = "COMPLEXITY")]
     complexity: Option<u8>,
-    /// A custom dictionary for the password, if set the complexity parameter is ignored.
+    /// A custom dictionary for the password, if set the complexity parameter is ignored. In case you would like to use whitespaces in your dictionary ' ' use double quotes: -d "aAb _1"
     #[clap(short, long, value_parser, value_name = "DICTIONARY")]
     dictionary: Option<String>,
 
