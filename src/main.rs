@@ -1,5 +1,8 @@
 use clap::Parser;
 use rand::{rngs::ThreadRng, Rng};
+use std::env;
+use std::fs::File;
+use std::io::Write;
 #[derive(Parser, Default, Debug)]
 #[clap(
     author = "Francesco De Domenico",
@@ -20,6 +23,10 @@ struct Arguments {
     /// Number of passwords to be generated
     #[clap(short, long, value_parser, value_name = "NUMBER")]
     number: Option<u64>,
+
+    /// Optional: writes the generated password/passwords into the specified file in the current working directory
+    #[clap(short, long, value_parser, value_name = "OUTPUT_FILE")]
+    output_file: Option<String>,
 }
 
 fn make_dictionary(args: &Arguments) -> String {
@@ -79,14 +86,38 @@ fn main() {
     let mut rng = rand::thread_rng();
     println!("\n");
     if let Some(input_number) = args.number {
-        for i in 0..input_number {
-            let password: String = make_password(&args, &dictionary, &mut rng);
-            println!("### PASSWORD {} ###\n{}", i+1, password);
-            println!("\n");
+        if let Some(input_output_file) = args.output_file.as_deref() {
+            // Create a temporary file.
+            let temp_directory = env::current_dir().unwrap();
+            let temp_file = temp_directory.join(input_output_file);
+
+            // Open a file in write-only (ignoring errors).
+            // This creates the file if it does not exist (and empty the file if it exists).
+            let mut file = File::create(temp_file).unwrap();
+            for i in 0..input_number {
+                let password: String = make_password(&args, &dictionary, &mut rng);
+                writeln!(&mut file, "### PASSWORD {} ###\n{}\n", i + 1, password).unwrap();
+            }
+        } else {
+            for i in 0..input_number {
+                let password: String = make_password(&args, &dictionary, &mut rng);
+                println!("### PASSWORD {} ###\n{}\n", i + 1, password);
+            }
         }
     } else {
         let password: String = make_password(&args, &dictionary, &mut rng);
-        println!("{}", password);
+        if let Some(input_output_file) = args.output_file.as_deref() {
+            // Create a temporary file.
+            let temp_directory = env::temp_dir();
+            let temp_file = temp_directory.join(input_output_file);
+
+            // Open a file in write-only (ignoring errors).
+            // This creates the file if it does not exist (and empty the file if it exists).
+            let mut file = File::create(temp_file).unwrap();
+            writeln!(&mut file, "### PASSWORD ###\n{}\n", password).unwrap();
+        } else {
+            println!("### PASSWORD ###\n{}\n", password);
+        }
     }
     println!("\n");
 }
