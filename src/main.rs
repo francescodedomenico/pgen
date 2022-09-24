@@ -1,8 +1,10 @@
 use clap::Parser;
 use rand::{rngs::ThreadRng, Rng};
+use serde_json;
 use std::env;
 use std::fs::File;
 use std::io::Write;
+
 #[derive(Parser, Default, Debug)]
 #[clap(
     author = "Francesco De Domenico",
@@ -13,6 +15,7 @@ struct Arguments {
     /// The desided length for the password
     #[clap(short, long, value_parser, value_name = "LENGTH")]
     length: usize,
+
     /// The complexity of the password. Values allowed: 1 - Lowercase dictionary; 2 - Lowercase and uppercase dictionary; 3 - Lowercase, uppercase and digits dictionary; 4 - lowercase, uppercase, digits and symbols dictionary;
     #[clap(short, long, value_parser = clap::value_parser!(u8).range(1..4), value_name = "COMPLEXITY")]
     complexity: Option<u8>,
@@ -27,6 +30,10 @@ struct Arguments {
     /// Optional: writes the generated password/passwords into the specified file in the current working directory
     #[clap(short, long, value_parser, value_name = "OUTPUT_FILE")]
     output_file: Option<String>,
+
+    /// Optional: passwords output as JSON
+    #[clap(short, long, action)]
+    json: bool,
 }
 
 fn make_dictionary(args: &Arguments) -> String {
@@ -84,40 +91,63 @@ fn main() {
     let args = Arguments::parse();
     let dictionary: String = make_dictionary(&args);
     let mut rng = rand::thread_rng();
-    println!("\n");
     if let Some(input_number) = args.number {
+        // Multi password branch
         if let Some(input_output_file) = args.output_file.as_deref() {
-            // Create a temporary file.
+            // File output branch
             let temp_directory = env::current_dir().unwrap();
             let temp_file = temp_directory.join(input_output_file);
-
-            // Open a file in write-only (ignoring errors).
-            // This creates the file if it does not exist (and empty the file if it exists).
             let mut file = File::create(temp_file).unwrap();
-            for i in 0..input_number {
-                let password: String = make_password(&args, &dictionary, &mut rng);
-                writeln!(&mut file, "### PASSWORD {} ###\n{}\n", i + 1, password).unwrap();
+            if args.json {
+                let mut passwords: Vec<String> = Vec::new();
+                for _i in 0..input_number {
+                    let password: String = make_password(&args, &dictionary, &mut rng);
+                    passwords.push(password);
+                }
+                let to_write_buffer: String = serde_json::to_string_pretty(&passwords).unwrap();
+                writeln!(&mut file, "{}", to_write_buffer).unwrap();
+            } else {
+                for i in 0..input_number {
+                    let password: String = make_password(&args, &dictionary, &mut rng);
+                    writeln!(&mut file, "### PASSWORD {} ###\n{}\n", i + 1, password).unwrap();
+                }
             }
         } else {
-            for i in 0..input_number {
-                let password: String = make_password(&args, &dictionary, &mut rng);
-                println!("### PASSWORD {} ###\n{}\n", i + 1, password);
+            if args.json {
+                let mut passwords: Vec<String> = Vec::new();
+                for _i in 0..input_number {
+                    let password: String = make_password(&args, &dictionary, &mut rng);
+                    passwords.push(password);
+                }
+                let to_write_buffer: String = serde_json::to_string_pretty(&passwords).unwrap();
+                println!("{}", to_write_buffer);
+            } else {
+                for i in 0..input_number {
+                    let password: String = make_password(&args, &dictionary, &mut rng);
+                    println!("### PASSWORD {} ###\n{}\n", i + 1, password);
+                }
             }
         }
     } else {
+        // Single password branch
         let password: String = make_password(&args, &dictionary, &mut rng);
         if let Some(input_output_file) = args.output_file.as_deref() {
-            // Create a temporary file.
+            // File output branch
             let temp_directory = env::temp_dir();
             let temp_file = temp_directory.join(input_output_file);
-
-            // Open a file in write-only (ignoring errors).
-            // This creates the file if it does not exist (and empty the file if it exists).
             let mut file = File::create(temp_file).unwrap();
-            writeln!(&mut file, "### PASSWORD ###\n{}\n", password).unwrap();
+            if args.json {
+                // Json branch
+                let mut passwords: Vec<String> = Vec::new();
+                let password: String = make_password(&args, &dictionary, &mut rng);
+                passwords.push(password);
+                let to_write_buffer: String = serde_json::to_string_pretty(&passwords).unwrap();
+                writeln!(&mut file, "{}", to_write_buffer).unwrap();
+            } else {
+                writeln!(&mut file, "### PASSWORD ###\n{}\n", password).unwrap();
+            }
         } else {
             println!("### PASSWORD ###\n{}\n", password);
         }
     }
-    println!("\n");
 }
