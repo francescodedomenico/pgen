@@ -32,14 +32,17 @@ USAGE:
     pgen.exe [OPTIONS] --length <LENGTH>
 
 OPTIONS:
-    -c, --complexity <COMPLEXITY>    The complexity of the password. Values allowed: 1 - Lowercase
-                                     dictionary; 2 - Lowercase and uppercase dictionary; 3 -
-                                     Lowercase, uppercase and digits dictionary; 4 - lowercase,
-                                     uppercase, digits and symbols dictionary;
-    -d, --dictionary <DICTIONARY>    A custom dictionary for the password, if set the complexity
-                                     parameter is ignored
-    -h, --help                       Print help information
-    -l, --length <LENGTH>            The desided length for the password
-    -n, --number <NUMBER>            Number of passwords to be generated
-    -V, --version                    Print version information
+    -c, --complexity <COMPLEXITY>      The complexity of the password. Values allowed: 1 - Lowercase
+                                       dictionary; 2 - Lowercase and uppercase dictionary; 3 -
+                                       Lowercase, uppercase and digits dictionary; 4 - lowercase,
+                                       uppercase, digits and symbols dictionary;
+    -d, --dictionary <DICTIONARY>      A custom dictionary for the password, if set the complexity
+                                       parameter is ignored
+    -h, --help                         Print help information
+    -j, --json                         Optional: passwords output as JSON
+    -l, --length <LENGTH>              The desided length for the password
+    -n, --number <NUMBER>              Number of passwords to be generated
+    -o, --output-file <OUTPUT_FILE>    Optional: writes the generated password/passwords into the
+                                       specified file in the current working directory
+    -V, --version                      Print version information
 ```
