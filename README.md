@@ -16,7 +16,7 @@ Currently pgen packs the following features:
 If you have an installed Rust toolchain you may simply run 
 
 ```shell
-$ cargo build -release
+$ cargo build --release
 ```
 
 you'll find the pgen executable in the /target/release folder. If you move it into your PATH you'll be able to run it as a command.
