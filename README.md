@@ -9,6 +9,7 @@ Currently pgen packs the following features:
 *   4 predefined password complexities
 *   Possibility to output several secrets at once
 *   Allows custom dictionaries
+*   Outputs passes as JSON Array
 
 ## Installation
 
