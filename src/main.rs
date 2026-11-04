@@ -1,38 +1,37 @@
 use clap::Parser;
-use rand::{rngs::ThreadRng, Rng};
-use serde_json;
+use rand::{rngs::ThreadRng, RngExt};
 use std::env;
 use std::fs::File;
 use std::io::Write;
 
 #[derive(Parser, Default, Debug)]
-#[clap(
+#[command(
     author = "Francesco De Domenico",
     version,
     about = "A Very simple Password Generator!"
 )]
 struct Arguments {
-    /// The desided length for the password
-    #[clap(short, long, value_parser, value_name = "LENGTH")]
+    /// The desired length for the password
+    #[arg(short, long, value_name = "LENGTH")]
     length: usize,
 
     /// The complexity of the password. Values allowed: 1 - Lowercase dictionary; 2 - Lowercase and uppercase dictionary; 3 - Lowercase, uppercase and digits dictionary; 4 - lowercase, uppercase, digits and symbols dictionary;
-    #[clap(short, long, value_parser = clap::value_parser!(u8).range(1..5), value_name = "COMPLEXITY")]
+    #[arg(short, long, value_parser = clap::value_parser!(u8).range(1..5), value_name = "COMPLEXITY")]
     complexity: Option<u8>,
     /// A custom dictionary for the password, if set the complexity parameter is ignored. In case you would like to use whitespaces in your dictionary ' ' use double quotes: -d "aAb _1"
-    #[clap(short, long, value_parser, value_name = "DICTIONARY")]
+    #[arg(short, long, value_name = "DICTIONARY")]
     dictionary: Option<String>,
 
     /// Number of passwords to be generated
-    #[clap(short, long, value_parser, value_name = "NUMBER")]
+    #[arg(short, long, value_name = "NUMBER")]
     number: Option<u64>,
 
     /// Optional: writes the generated password/passwords into the specified file in the current working directory
-    #[clap(short, long, value_parser, value_name = "OUTPUT_FILE")]
+    #[arg(short, long, value_name = "OUTPUT_FILE")]
     output_file: Option<String>,
 
     /// Optional: passwords output as JSON
-    #[clap(short, long, action)]
+    #[arg(short, long)]
     json: bool,
 }
 
@@ -41,78 +40,57 @@ fn make_dictionary(args: &Arguments) -> String {
     const LOWERCASE: &str = "abcdefghijklmnopqrstuvwxyz";
     const NUMBERS: &str = "0123456789";
     const SYMBOLS: &str = "\\|\"$%&/()='?^~";
-    let mut dictionary: String = "".to_string();
+    let mut dictionary = String::new();
 
     if let Some(input_dictionary) = args.dictionary.as_deref() {
-        dictionary = input_dictionary.to_string();
+        dictionary.push_str(input_dictionary);
     } else {
-        if let Some(input_complexity) = args.complexity {
-            match input_complexity {
-                1 => {
-                    dictionary.push_str(&LOWERCASE);
-                }
-                2 => {
-                    dictionary.push_str(&UPPERCASE);
-                    dictionary.push_str(&LOWERCASE);
-                }
-                3 => {
-                    dictionary.push_str(&UPPERCASE);
-                    dictionary.push_str(&LOWERCASE);
-                    dictionary.push_str(&NUMBERS);
-                }
-                4 => {
-                    dictionary.push_str(&UPPERCASE);
-                    dictionary.push_str(&LOWERCASE);
-                    dictionary.push_str(&NUMBERS);
-                    dictionary.push_str(&SYMBOLS);
-                }
-                _ => {}
-            }
-        } else {
-            dictionary.push_str(&UPPERCASE);
-            dictionary.push_str(&LOWERCASE);
-            dictionary.push_str(&NUMBERS);
-            dictionary.push_str(&SYMBOLS);
+        // No complexity given: the full dictionary.
+        let complexity = args.complexity.unwrap_or(4);
+        if complexity >= 2 {
+            dictionary.push_str(UPPERCASE);
+        }
+        dictionary.push_str(LOWERCASE);
+        if complexity >= 3 {
+            dictionary.push_str(NUMBERS);
+        }
+        if complexity >= 4 {
+            dictionary.push_str(SYMBOLS);
         }
     }
     dictionary
 }
 
-fn make_password(args: &Arguments, dictionary: &String, rng: &mut ThreadRng) -> String {
-    let password: String = (0..args.length)
-        .map(|_| {
-            let idx = rng.gen_range(0..dictionary.len());
-            dictionary.chars().nth(idx).unwrap() as char
-        })
-        .collect();
-    password
+fn make_password(args: &Arguments, dictionary: &str, rng: &mut ThreadRng) -> String {
+    // Sample whole characters, so a dictionary with multibyte characters never
+    // indexes into the middle of one.
+    let chars: Vec<char> = dictionary.chars().collect();
+    (0..args.length)
+        .map(|_| chars[rng.random_range(0..chars.len())])
+        .collect()
 }
 
 fn make_passwords_vector(
     input_number: u64,
     args: &Arguments,
-    dictionary: &String,
+    dictionary: &str,
     rng: &mut ThreadRng,
 ) -> Vec<String> {
-    let mut passwords: Vec<String> = Vec::new();
-    for _i in 0..input_number {
-        let password: String = make_password(&args, &dictionary, rng);
-        passwords.push(password);
-    }
-    passwords
+    (0..input_number)
+        .map(|_| make_password(args, dictionary, rng))
+        .collect()
 }
 
 fn make_file_from_cwd(file_name: &str) -> File {
     let temp_directory = env::current_dir().unwrap();
     let temp_file = temp_directory.join(file_name);
-    let file = File::create(temp_file).unwrap();
-    file
+    File::create(temp_file).unwrap()
 }
 
 fn main() {
     let args = Arguments::parse();
     let dictionary: String = make_dictionary(&args);
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     if let Some(input_number) = args.number {
         // Multi password branch
         if let Some(input_output_file) = args.output_file.as_deref() {
@@ -166,5 +144,78 @@ fn main() {
                 println!("### PASSWORD ###\n{}\n", password);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn args(length: usize, complexity: Option<u8>, dictionary: Option<&str>) -> Arguments {
+        Arguments {
+            length,
+            complexity,
+            dictionary: dictionary.map(str::to_string),
+            number: None,
+            output_file: None,
+            json: false,
+        }
+    }
+
+    #[test]
+    fn custom_dictionary_wins_over_complexity() {
+        let dictionary = make_dictionary(&args(8, Some(1), Some("xyz 1")));
+        assert_eq!(dictionary, "xyz 1");
+    }
+
+    #[test]
+    fn complexity_levels_grow_the_dictionary() {
+        let level: Vec<String> = (1..=4)
+            .map(|c| make_dictionary(&args(8, Some(c), None)))
+            .collect();
+        assert_eq!(level[0], "abcdefghijklmnopqrstuvwxyz");
+        assert!(level[1].contains('A') && level[1].contains('a') && !level[1].contains('0'));
+        assert!(level[2].contains('0') && !level[2].contains('$'));
+        assert!(level[3].contains('$') && level[3].contains('0') && level[3].contains('a'));
+        assert!(level[0].len() < level[1].len() && level[1].len() < level[2].len());
+        assert!(level[2].len() < level[3].len());
+    }
+
+    #[test]
+    fn no_complexity_means_the_full_dictionary() {
+        assert_eq!(
+            make_dictionary(&args(8, None, None)),
+            make_dictionary(&args(8, Some(4), None))
+        );
+    }
+
+    #[test]
+    fn password_has_the_requested_length_and_only_dictionary_chars() {
+        let a = args(64, None, Some("ab1"));
+        let dictionary = make_dictionary(&a);
+        let mut rng = rand::rng();
+        let password = make_password(&a, &dictionary, &mut rng);
+        assert_eq!(password.chars().count(), 64);
+        assert!(password.chars().all(|c| "ab1".contains(c)));
+    }
+
+    #[test]
+    fn multibyte_dictionary_chars_are_sampled_whole() {
+        let a = args(32, None, Some("äöü€"));
+        let dictionary = make_dictionary(&a);
+        let mut rng = rand::rng();
+        let password = make_password(&a, &dictionary, &mut rng);
+        assert_eq!(password.chars().count(), 32);
+        assert!(password.chars().all(|c| "äöü€".contains(c)));
+    }
+
+    #[test]
+    fn passwords_vector_has_the_requested_count() {
+        let a = args(10, Some(3), None);
+        let dictionary = make_dictionary(&a);
+        let mut rng = rand::rng();
+        let passwords = make_passwords_vector(5, &a, &dictionary, &mut rng);
+        assert_eq!(passwords.len(), 5);
+        assert!(passwords.iter().all(|p| p.len() == 10));
     }
 }

@@ -2,12 +2,14 @@
 name = "pgen"
 version = "0.1.0"
 edition = "2021"
+description = "A very simple and very fast command-line password generator"
+license = "Apache-2.0"
+repository = "https://github.com/francescodedomenico/pgen"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [profile.release]
 strip = true
 
 [dependencies]
-clap = { version = "3.2.20", features = ["derive"] }
-rand = {version="0.8.5"}
-serde_json  = {version="1.0"}
+clap = { version = "4.6", features = ["derive"] }
+rand = "0.10"
+serde_json = "1.0"

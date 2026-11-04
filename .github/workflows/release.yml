@@ -1,0 +1,244 @@
+name: Release
+
+# Builds the release artifacts for a v<version> tag (pushed by release-plz,
+# see release-plz.yml) and publishes one GitHub release with all of them.
+# On pull requests that touch the packaging it builds and smoke-tests
+# everything without publishing, so a change here is tried before a tag
+# depends on it.
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - dev/package.sh
+      - dev/release-version.sh
+      - dev/test-release-version.sh
+      - .github/workflows/release.yml
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+# Read-only by default; only the publish job (tag pushes) gets write access.
+permissions:
+  contents: read
+
+jobs:
+  deny:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+
+  # The tag check every packaging job runs, tested with fake refs: the matching
+  # tag passes, a mismatched one is refused. Runs on pull requests too, where
+  # no real tag can be tried.
+  release-version-check:
+    name: release version check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            Cargo.toml
+            dev/release-version.sh
+            dev/test-release-version.sh
+          sparse-checkout-cone-mode: false
+      - name: Matching and mismatched tags
+        run: bash dev/test-release-version.sh
+
+  build:
+    name: ${{ matrix.label }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: macos-aarch64
+            runner: macos-14
+            target: aarch64-apple-darwin
+            smoke: true
+          - label: macos-x86_64
+            runner: macos-14
+            target: x86_64-apple-darwin
+            # Cross-built on the Apple Silicon runner; Rosetta runs it there.
+            smoke: true
+          - label: linux-x86_64
+            runner: ubuntu-24.04
+            target: x86_64-unknown-linux-musl
+            smoke: true
+          - label: linux-aarch64
+            runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+            smoke: true
+          - label: windows-x86_64
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            smoke: true
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: bash
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      # First, so a tag that is not v<package version> stops the job before any build.
+      - name: Resolve version
+        id: version
+        run: bash dev/release-version.sh
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+      # Static musl binaries run on any Linux regardless of its glibc.
+      - name: Install musl tools
+        if: contains(matrix.target, 'musl')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
+      - name: Package
+        run: bash dev/package.sh "${{ steps.version.outputs.version }}" "${{ matrix.target }}" "${{ matrix.label }}"
+      - name: Smoke test
+        if: matrix.smoke
+        run: |
+          set -euo pipefail
+          bin=target/${{ matrix.target }}/release/pgen
+          [[ "${{ runner.os }}" == Windows ]] && bin="$bin.exe"
+          "$bin" --version | grep -F "pgen ${{ steps.version.outputs.version }}"
+          "$bin" -l 16 -c 4 -n 2 -j | grep -c '"' | grep -qx 2
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pgen-${{ matrix.label }}
+          if-no-files-found: error
+          path: target/dist/pgen-${{ steps.version.outputs.version }}-${{ matrix.label }}.*
+
+  # CycloneDX SBOM of the crates in Cargo.lock, attached to the release beside
+  # the binaries. Same generator and name as `bash dev/sast.sh sbom`.
+  sbom:
+    name: sbom
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve version
+        id: version
+        run: bash dev/release-version.sh
+      # Pinned, so a release SBOM never changes format with an unreviewed syft
+      # release; dev/sast.sh uses the same version.
+      - name: Install syft
+        id: syft
+        uses: anchore/sbom-action/download-syft@v0
+        with:
+          syft-version: v1.54.1
+      - name: Generate SBOM
+        env:
+          SYFT: ${{ steps.syft.outputs.cmd }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p target/dist
+          "$SYFT" scan file:Cargo.lock \
+            --source-name pgen --source-version "$VERSION" \
+            -o "cyclonedx-json=target/dist/pgen-$VERSION.cdx.json"
+          # An SBOM without components means syft read nothing from the lockfile.
+          f="target/dist/pgen-$VERSION.cdx.json"
+          jq -e '.components | length > 0' "$f" > /dev/null || { echo "::error::no components in $f"; exit 1; }
+          echo "$f: $(jq '.components | length' "$f") components"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pgen-sbom
+          if-no-files-found: error
+          path: target/dist/pgen-${{ steps.version.outputs.version }}.cdx.json
+
+  # One release with every system's files, published only when every build and
+  # smoke test passed. Only a tag push publishes; a manual run on a tag builds
+  # and tests, never re-publishes. The release is made as a draft, gets all 11
+  # files, and only then is published, so a failed upload never leaves a
+  # half-published release; a re-run first removes the draft a failed run left.
+  publish:
+    name: publish release
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: [deny, release-version-check, build, sbom]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
+      TAG: ${{ github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: CHANGELOG.md
+          sparse-checkout-cone-mode: false
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: pgen-*
+          merge-multiple: true
+          path: dist
+      - name: Check every file is here
+        run: |
+          set -euo pipefail
+          ls -l dist
+          cat > "$RUNNER_TEMP/release-files" <<EOF
+          dist/pgen-$VERSION-macos-aarch64.tar.gz
+          dist/pgen-$VERSION-macos-aarch64.tar.gz.sha256
+          dist/pgen-$VERSION-macos-x86_64.tar.gz
+          dist/pgen-$VERSION-macos-x86_64.tar.gz.sha256
+          dist/pgen-$VERSION-linux-x86_64.tar.gz
+          dist/pgen-$VERSION-linux-x86_64.tar.gz.sha256
+          dist/pgen-$VERSION-linux-aarch64.tar.gz
+          dist/pgen-$VERSION-linux-aarch64.tar.gz.sha256
+          dist/pgen-$VERSION-windows-x86_64.zip
+          dist/pgen-$VERSION-windows-x86_64.zip.sha256
+          dist/pgen-$VERSION.cdx.json
+          EOF
+          missing=0
+          while read -r file; do
+            if [ ! -s "$file" ]; then
+              echo "::error::missing or empty: $file"
+              missing=1
+            fi
+          done < "$RUNNER_TEMP/release-files"
+          [ "$(wc -l < "$RUNNER_TEMP/release-files")" -eq 11 ]
+          exit "$missing"
+      # The version's section of CHANGELOG.md (written by release-plz) becomes
+      # the release notes, under a line listing the downloads.
+      - name: Release notes
+        run: |
+          set -euo pipefail
+          {
+            echo "Downloads for macOS (aarch64, x86_64), Linux (static x86_64, aarch64) and Windows (x86_64), each with its \`.sha256\` checksum, plus the CycloneDX SBOM \`pgen-$VERSION.cdx.json\`."
+            echo
+            awk -v v="$VERSION" '
+              /^## \[/ { in_section = index($0, "## [" v "]") == 1; next }
+              in_section { print }
+            ' CHANGELOG.md
+          } > "$RUNNER_TEMP/notes.md"
+          cat "$RUNNER_TEMP/notes.md"
+      - name: Remove a draft a failed run left
+        run: |
+          set -euo pipefail
+          gh api --paginate "repos/$GH_REPO/releases" \
+            --jq '.[] | select(.draft and .tag_name == env.TAG) | .id' |
+            while read -r id; do
+              echo "deleting the draft release $id for $TAG"
+              gh api -X DELETE "repos/$GH_REPO/releases/$id"
+            done
+      - name: Create the release as a draft
+        run: |
+          set -euo pipefail
+          prerelease=()
+          if [[ "$VERSION" == *-* ]]; then prerelease=(--prerelease); fi
+          gh release create "$TAG" --draft --verify-tag --title "$TAG" \
+            --notes-file "$RUNNER_TEMP/notes.md" "${prerelease[@]}"
+      - name: Upload the files
+        run: |
+          set -euo pipefail
+          mapfile -t files < "$RUNNER_TEMP/release-files"
+          gh release upload "$TAG" "${files[@]}"
+      - name: Publish the release
+        run: gh release edit "$TAG" --draft=false
