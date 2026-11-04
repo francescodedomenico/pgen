@@ -35,12 +35,26 @@ cd target/dist
 if [[ "$target" == *windows* ]]; then
   archive="pgen-$version-$label.zip"
   rm -f "$archive"
-  7z a -bso0 -bsp0 "$archive" "./stage/pgen-$version-$label/"*
+  # The directory itself, so the zip unpacks into pgen-<version>-<label>/ like the tarballs.
+  7z a -bso0 -bsp0 "$archive" "./stage/pgen-$version-$label"
 else
   archive="pgen-$version-$label.tar.gz"
   tar -C stage -czf "$archive" "pgen-$version-$label"
 fi
 rm -rf stage
+
+# Every entry must sit under pgen-<version>-<label>/, on every platform.
+if [[ "$archive" == *.zip ]]; then
+  entries="$(7z l -ba "$archive" | awk '{print $NF}')"
+else
+  entries="$(tar -tzf "$archive")"
+fi
+while read -r entry; do
+  case "$entry" in
+    "pgen-$version-$label"|"pgen-$version-$label/"*|"pgen-$version-$label\\"*) ;;
+    *) echo "::error::$archive: entry '$entry' is outside pgen-$version-$label/"; exit 1 ;;
+  esac
+done <<< "$entries"
 
 # Checksum in `sha256sum -c` format; macOS has shasum, the others sha256sum.
 if command -v sha256sum >/dev/null 2>&1; then

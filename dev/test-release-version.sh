@@ -56,5 +56,8 @@ printf '[dependencies]\nversion = "9.9.9"\n[package]\nname = "x"\n' > "$work/wro
 expect_refusal branch develop "$work/wrong-table.toml"
 printf '[package]\r\nname = "pgen"\r\nversion = "%s"\r\n' "$version" > "$work/crlf.toml"
 expect_pass tag "v$version" "$work/crlf.toml"
+# No spaces around the equals sign, and a trailing comment.
+printf '[package]\nname="pgen"\nversion="%s" # bumped by hand\n' "$version" > "$work/tight.toml"
+expect_pass tag "v$version" "$work/tight.toml"
 
 echo "release-version.sh: all checks passed"

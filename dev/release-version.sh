@@ -16,8 +16,10 @@ manifest="${RELEASE_CARGO_TOML:-$root/Cargo.toml}"
 [[ -f "$manifest" ]] || { echo "::error::no manifest at $manifest"; exit 1; }
 
 # tr: a Windows checkout may have CRLF line endings.
+# The quoted value after `version =` inside [package], whatever the spacing.
 version="$(tr -d '\r' < "$manifest" \
-  | awk '/^\[package\]/{f=1;next} /^\[/{f=0} f && /^version *=/{gsub(/"/,"",$3);print $3;exit}')"
+  | awk '/^\[package\]/{f=1;next} /^\[/{f=0} f && /^version *= *"/' \
+  | sed -nE 's/^version *= *"([^"]+)".*/\1/p' | head -n 1)"
 if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]; then
   echo "::error::no valid [package] version in $manifest (found '$version')"
   exit 1
