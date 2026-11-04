@@ -27,29 +27,19 @@ you'll find the pgen executable in the /target/release folder. If you move it in
 
 ```shell
 $ pgen -h
-pgen 0.1.0
-Francesco De Domenico
 A Very simple Password Generator!
 
-USAGE:
-    pgen [OPTIONS] --length <LENGTH>
+Usage: pgen [OPTIONS] --length <LENGTH>
 
-OPTIONS:
-    -c, --complexity <COMPLEXITY>      The complexity of the password. Values allowed: 1 - Lowercase
-                                       dictionary; 2 - Lowercase and uppercase dictionary; 3 -
-                                       Lowercase, uppercase and digits dictionary; 4 - lowercase,
-                                       uppercase, digits and symbols dictionary;
-    -d, --dictionary <DICTIONARY>      A custom dictionary for the password, if set the complexity
-                                       parameter is ignored. In case you would like to use
-                                       whitespaces in your dictionary ' ' use double quotes: -d "aAb
-                                       _1"
-    -h, --help                         Print help information
-    -j, --json                         Optional: passwords output as JSON
-    -l, --length <LENGTH>              The desired length for the password
-    -n, --number <NUMBER>              Number of passwords to be generated
-    -o, --output-file <OUTPUT_FILE>    Optional: writes the generated password/passwords into the
-                                       specified file in the current working directory
-    -V, --version                      Print version information
+Options:
+  -l, --length <LENGTH>            The desired length for the password
+  -c, --complexity <COMPLEXITY>    The complexity of the password. Values allowed: 1 - Lowercase dictionary; 2 - Lowercase and uppercase dictionary; 3 - Lowercase, uppercase and digits dictionary; 4 - lowercase, uppercase, digits and symbols dictionary;
+  -d, --dictionary <DICTIONARY>    A custom dictionary for the password, if set the complexity parameter is ignored. In case you would like to use whitespaces in your dictionary ' ' use double quotes: -d "aAb _1"
+  -n, --number <NUMBER>            Number of passwords to be generated
+  -o, --output-file <OUTPUT_FILE>  Optional: writes the generated password/passwords into the specified file (a relative path is resolved from the current working directory)
+  -j, --json                       Optional: passwords output as JSON
+  -h, --help                       Print help
+  -V, --version                    Print version
 ```
 By default the tool outputs on the standard output:
 ```shell
