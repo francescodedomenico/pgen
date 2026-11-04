@@ -1,7 +1,9 @@
 [package]
 name = "pgen"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
+# Minimum supported Rust: what clap 4.6 and rand 0.10 need; CI checks it.
+rust-version = "1.85"
 description = "A very simple and very fast command-line password generator"
 license = "Apache-2.0"
 repository = "https://github.com/francescodedomenico/pgen"

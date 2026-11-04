@@ -1,5 +1,5 @@
 use clap::Parser;
-use rand::{rngs::ThreadRng, RngExt};
+use rand::{RngExt, rngs::ThreadRng};
 use std::fs::File;
 use std::io::{self, Write};
 

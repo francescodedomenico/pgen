@@ -33,4 +33,27 @@ jobs:
       - name: Test
         run: cargo test --locked
 
+  # The minimum supported Rust declared in Cargo.toml (rust-version) must
+  # still build the locked dependency tree; a crate bump that needs a newer
+  # compiler fails here instead of on a user's machine.
+  msrv:
+    name: msrv (rust-version in Cargo.toml)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read rust-version
+        id: msrv
+        run: |
+          set -euo pipefail
+          version="$(awk '/^\[package\]/{f=1;next} /^\[/{f=0} f && /^rust-version *=/{gsub(/"/,"",$3);print $3;exit}' Cargo.toml)"
+          [[ -n "$version" ]] || { echo "::error::no rust-version in [package]"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.msrv.outputs.version }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: msrv
+      - run: cargo check --locked --all-targets
+
   # cargo-deny runs in security.yml (job cargo-deny), which also re-scans weekly.
