@@ -109,7 +109,7 @@ jobs:
           [[ "${{ runner.os }}" == Windows ]] && bin="$bin.exe"
           "$bin" --version | grep -F "pgen ${{ steps.version.outputs.version }}"
           "$bin" -l 16 -c 4 -n 2 -j | grep -c '"' | grep -qx 2
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: pgen-${{ matrix.label }}
           if-no-files-found: error
@@ -146,7 +146,7 @@ jobs:
           f="target/dist/pgen-$VERSION.cdx.json"
           jq -e '.components | length > 0' "$f" > /dev/null || { echo "::error::no components in $f"; exit 1; }
           echo "$f: $(jq '.components | length' "$f") components"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: pgen-sbom
           if-no-files-found: error
