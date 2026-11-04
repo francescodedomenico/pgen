@@ -4,14 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-`pgen` is a single-binary Rust CLI password generator. The whole program lives in `src/main.rs` (unit tests at its bottom); there are no modules and no library crate.
+`pgen` is a single-binary Rust CLI password generator. The whole program lives in `src/main.rs` (unit tests of the pieces at its bottom); `tests/cli.rs` runs the built binary end to end (flags, output shapes, exit codes, file output). There are no modules and no library crate.
 
 ## Commands
 
 ```shell
 cargo build --release          # release build (profile strips symbols); binary at target/release/pgen
 cargo run -- -l 16 -c 3 -n 5   # run from source; args after `--` go to pgen
-cargo test                     # unit tests in src/main.rs; one test: cargo test multibyte
+cargo test                     # unit tests in src/main.rs + CLI tests in tests/cli.rs; one test: cargo test multibyte; one file: cargo test --test cli
 
 # The CI gate, as ci.yml runs it (fmt is checked on Linux only)
 cargo fmt --all --check
