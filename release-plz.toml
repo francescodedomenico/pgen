@@ -4,6 +4,10 @@
 # opens or updates the release PR (version bump + changelog), then, once that
 # PR is merged, it pushes the v<version> tag that starts release.yml.
 [workspace]
+# Releases are git tags, never crates.io: a foreign crate named pgen exists
+# there, and without git_only release-plz compares against it and bumps the
+# version on every run.
+git_only = true
 # Not published to crates.io; releases are the GitHub release artifacts.
 # Set here, never in Cargo.toml: release-plz skips a package whose manifest
 # says `publish = false`, and then no version is ever computed.
