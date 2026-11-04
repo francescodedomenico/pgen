@@ -13,7 +13,9 @@ Currently pgen packs the following features:
 
 ## Installation
 
-If you have an installed Rust toolchain you may simply run 
+Download the archive for your system from the [releases page](https://github.com/francescodedomenico/pgen/releases) (macOS arm64 and x86_64, Linux x86_64 and aarch64 as static binaries, Windows x86_64), check it against the `.sha256` file beside it, and put the `pgen` binary in your `PATH`. Every release also carries a CycloneDX SBOM of the crates it was built from.
+
+If you have an installed Rust toolchain you may instead run
 
 ```shell
 $ cargo build --release
@@ -30,7 +32,7 @@ Francesco De Domenico
 A Very simple Password Generator!
 
 USAGE:
-    pgen.exe [OPTIONS] --length <LENGTH>
+    pgen [OPTIONS] --length <LENGTH>
 
 OPTIONS:
     -c, --complexity <COMPLEXITY>      The complexity of the password. Values allowed: 1 - Lowercase
@@ -43,7 +45,7 @@ OPTIONS:
                                        _1"
     -h, --help                         Print help information
     -j, --json                         Optional: passwords output as JSON
-    -l, --length <LENGTH>              The desided length for the password
+    -l, --length <LENGTH>              The desired length for the password
     -n, --number <NUMBER>              Number of passwords to be generated
     -o, --output-file <OUTPUT_FILE>    Optional: writes the generated password/passwords into the
                                        specified file in the current working directory
@@ -108,3 +110,16 @@ you may also flush the buffer into a file written in the current work directory:
 $ pgen -l 16 -c 4 -n 10 -j -o passwords.json
 ```
 
+## Development
+
+Branches follow Gitflow (`main` holds tagged releases, `develop` integrates, `feature/*` off `develop`) and commits follow [Conventional Commits](https://www.conventionalcommits.org/). Versions are derived from the commits by [release-plz](https://release-plz.dev/), which opens a release PR against `main`; merging it tags the release and the tag builds and publishes the binaries. See [CHANGELOG.md](CHANGELOG.md) for what changed.
+
+Before a PR, run the same gate CI does:
+
+```shell
+cargo fmt --all --check
+cargo clippy --all-targets --locked -- -D warnings
+cargo test --locked
+cargo deny check
+bash dev/sast.sh        # semgrep, cargo-deny, grype, gitleaks, SBOM (needs Docker)
+```
