@@ -1,0 +1,22 @@
+# release-plz: the version and CHANGELOG.md are derived from the Conventional
+# Commits on main (feat: minor, fix: patch, "BREAKING CHANGE" major).
+# .github/workflows/release-plz.yml runs it on every push to main: first it
+# opens or updates the release PR (version bump + changelog), then, once that
+# PR is merged, it pushes the v<version> tag that starts release.yml.
+[workspace]
+# Not published to crates.io; releases are the GitHub release artifacts.
+# Set here, never in Cargo.toml: release-plz skips a package whose manifest
+# says `publish = false`, and then no version is ever computed.
+publish = false
+# release.yml creates the GitHub release itself, with the binaries attached.
+git_release_enable = false
+git_tag_enable = true
+git_tag_name = "v{{ version }}"
+# The release PR plays the part of a Gitflow release/X.Y.Z branch.
+pr_branch_prefix = "release/"
+pr_name = "chore(release): v{{ version }}"
+pr_labels = ["release"]
+# A binary crate has no public API to check.
+semver_check = false
+dependencies_update = false
+changelog_update = true

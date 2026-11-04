@@ -1,0 +1,62 @@
+name: Release PR
+
+# Automated semantic versioning (release-plz.toml). On every push to main:
+# `release-pr` opens or refreshes the release PR (Cargo.toml bump plus the
+# CHANGELOG.md section derived from the Conventional Commits since the last
+# tag); `release` runs after that PR is merged and pushes the v<version> tag,
+# which starts release.yml.
+#
+# RELEASE_PLZ_TOKEN is a fine-grained personal access token (Contents and Pull
+# requests: read and write) rather than GITHUB_TOKEN: pushes and PRs made with
+# GITHUB_TOKEN never trigger other workflows, so the release PR would get no CI
+# and the tag would build no release.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-plz-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-plz-release:
+    name: tag the merged release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_PLZ_TOKEN }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: release-plz/action@v0.5
+        with:
+          command: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
+
+  release-plz-pr:
+    name: open or refresh the release PR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    concurrency:
+      group: release-plz-pr-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_PLZ_TOKEN }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: release-plz/action@v0.5
+        with:
+          command: release-pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
