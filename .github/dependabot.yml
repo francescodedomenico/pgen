@@ -1,0 +1,33 @@
+# Dependabot: weekly PRs against develop (the Gitflow integration branch) for
+# crate updates and for the GitHub Actions the workflows use. The commit
+# prefixes keep the PRs Conventional Commits, so release-plz files them under
+# the right changelog section (chore is not a version bump; a crate update
+# that fixes something should be retitled fix(deps) before merging).
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "chore(deps)"
+    labels: ["dependencies"]
+    groups:
+      # One PR for every compatible (semver-minor and patch) crate bump.
+      crates:
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "ci(deps)"
+    labels: ["dependencies"]
+    groups:
+      actions:
+        update-types: ["minor", "patch"]
