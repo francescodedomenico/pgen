@@ -28,7 +28,7 @@ jobs:
   deny:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: EmbarkStudios/cargo-deny-action@v2
 
   # The tag check every packaging job runs, tested with fake refs: the matching
@@ -38,7 +38,7 @@ jobs:
     name: release version check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           sparse-checkout: |
             Cargo.toml
@@ -82,7 +82,7 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # First, so a tag that is not v<package version> stops the job before any build.
       - name: Resolve version
         id: version
@@ -109,7 +109,7 @@ jobs:
           [[ "${{ runner.os }}" == Windows ]] && bin="$bin.exe"
           "$bin" --version | grep -F "pgen ${{ steps.version.outputs.version }}"
           "$bin" -l 16 -c 4 -n 2 -j | grep -c '"' | grep -qx 2
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: pgen-${{ matrix.label }}
           if-no-files-found: error
@@ -121,7 +121,7 @@ jobs:
     name: sbom
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Resolve version
         id: version
         run: bash dev/release-version.sh
@@ -146,7 +146,7 @@ jobs:
           f="target/dist/pgen-$VERSION.cdx.json"
           jq -e '.components | length > 0' "$f" > /dev/null || { echo "::error::no components in $f"; exit 1; }
           echo "$f: $(jq '.components | length' "$f") components"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: pgen-sbom
           if-no-files-found: error
@@ -170,11 +170,11 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           sparse-checkout: CHANGELOG.md
           sparse-checkout-cone-mode: false
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: pgen-*
           merge-multiple: true
