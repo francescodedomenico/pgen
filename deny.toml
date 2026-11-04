@@ -1,0 +1,25 @@
+# cargo-deny configuration: RustSec advisories, licenses and sources of every
+# crate in Cargo.lock. CI runs it in security.yml (and weekly); locally:
+# cargo deny check. Every ignore below carries a one-line reason.
+
+[licenses]
+allow = [
+    "Apache-2.0",
+    "MIT",
+    # unicode-ident (via clap_derive and serde_json's proc macros)
+    "Unicode-3.0",
+]
+
+[advisories]
+version = 2
+# Unmaintained notices for every crate, at any depth: the dependency tree is
+# small, so a notice is always ours to act on.
+unmaintained = "all"
+ignore = []
+
+[bans]
+multiple-versions = "warn"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

@@ -1,0 +1,14 @@
+# gitleaks configuration: secrets scanning over the full git history (CI) and
+# the working tree. Extends the built-in default ruleset. Generated passwords
+# never belong in the repository, so there is nothing to allowlist beyond
+# build outputs and scanner output.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Build outputs and scanner output"
+paths = [
+    '''target/''',
+    '''sast-out/''',
+]

@@ -13,7 +13,9 @@ Currently pgen packs the following features:
 
 ## Installation
 
-If you have an installed Rust toolchain you may simply run 
+Download the archive for your system from the [releases page](https://github.com/francescodedomenico/pgen/releases) (macOS arm64 and x86_64, Linux x86_64 and aarch64 as static binaries, Windows x86_64), check it against the `.sha256` file beside it, and put the `pgen` binary in your `PATH`. Every release also carries a CycloneDX SBOM of the crates it was built from.
+
+If you have an installed Rust toolchain you may instead run
 
 ```shell
 $ cargo build --release
@@ -25,29 +27,19 @@ you'll find the pgen executable in the /target/release folder. If you move it in
 
 ```shell
 $ pgen -h
-pgen 0.1.0
-Francesco De Domenico
 A Very simple Password Generator!
 
-USAGE:
-    pgen.exe [OPTIONS] --length <LENGTH>
+Usage: pgen [OPTIONS] --length <LENGTH>
 
-OPTIONS:
-    -c, --complexity <COMPLEXITY>      The complexity of the password. Values allowed: 1 - Lowercase
-                                       dictionary; 2 - Lowercase and uppercase dictionary; 3 -
-                                       Lowercase, uppercase and digits dictionary; 4 - lowercase,
-                                       uppercase, digits and symbols dictionary;
-    -d, --dictionary <DICTIONARY>      A custom dictionary for the password, if set the complexity
-                                       parameter is ignored. In case you would like to use
-                                       whitespaces in your dictionary ' ' use double quotes: -d "aAb
-                                       _1"
-    -h, --help                         Print help information
-    -j, --json                         Optional: passwords output as JSON
-    -l, --length <LENGTH>              The desided length for the password
-    -n, --number <NUMBER>              Number of passwords to be generated
-    -o, --output-file <OUTPUT_FILE>    Optional: writes the generated password/passwords into the
-                                       specified file in the current working directory
-    -V, --version                      Print version information
+Options:
+  -l, --length <LENGTH>            The desired length for the password
+  -c, --complexity <COMPLEXITY>    The complexity of the password. Values allowed: 1 - Lowercase dictionary; 2 - Lowercase and uppercase dictionary; 3 - Lowercase, uppercase and digits dictionary; 4 - lowercase, uppercase, digits and symbols dictionary;
+  -d, --dictionary <DICTIONARY>    A custom dictionary for the password, if set the complexity parameter is ignored. In case you would like to use whitespaces in your dictionary ' ' use double quotes: -d "aAb _1"
+  -n, --number <NUMBER>            Number of passwords to be generated
+  -o, --output-file <OUTPUT_FILE>  Optional: writes the generated password/passwords into the specified file (a relative path is resolved from the current working directory)
+  -j, --json                       Optional: passwords output as JSON
+  -h, --help                       Print help
+  -V, --version                    Print version
 ```
 By default the tool outputs on the standard output:
 ```shell
@@ -108,3 +100,16 @@ you may also flush the buffer into a file written in the current work directory:
 $ pgen -l 16 -c 4 -n 10 -j -o passwords.json
 ```
 
+## Development
+
+Branches follow Gitflow (`main` holds tagged releases, `develop` integrates, `feature/*` off `develop`) and commits follow [Conventional Commits](https://www.conventionalcommits.org/). Versions are derived from the commits by [release-plz](https://release-plz.dev/), which opens a release PR against `main`; merging it tags the release and the tag builds and publishes the binaries. See [CHANGELOG.md](CHANGELOG.md) for what changed.
+
+Before a PR, run the same gate CI does:
+
+```shell
+cargo fmt --all --check
+cargo clippy --all-targets --locked -- -D warnings
+cargo test --locked
+cargo deny check
+bash dev/sast.sh        # semgrep, cargo-deny, grype, gitleaks, SBOM (needs Docker)
+```
