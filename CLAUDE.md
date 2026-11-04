@@ -4,14 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-`pgen` is a single-binary Rust CLI password generator. The whole program lives in `src/main.rs` (unit tests at its bottom); there are no modules and no library crate.
+`pgen` is a single-binary Rust CLI password generator. The whole program lives in `src/main.rs` (unit tests of the pieces at its bottom); `tests/cli.rs` runs the built binary end to end (flags, output shapes, exit codes, file output). There are no modules and no library crate.
 
 ## Commands
 
 ```shell
 cargo build --release          # release build (profile strips symbols); binary at target/release/pgen
 cargo run -- -l 16 -c 3 -n 5   # run from source; args after `--` go to pgen
-cargo test                     # unit tests in src/main.rs; one test: cargo test multibyte
+cargo test                     # unit tests in src/main.rs + CLI tests in tests/cli.rs; one test: cargo test multibyte; one file: cargo test --test cli
 
 # The CI gate, as ci.yml runs it (fmt is checked on Linux only)
 cargo fmt --all --check
@@ -39,12 +39,12 @@ bash dev/package.sh <version> <rust-target> <label>   # release archive + .sha25
 
 ## Architecture (src/main.rs)
 
-Flow is linear: parse args with clap 4 derive (`Arguments` struct) → `make_dictionary` builds the character set → `make_password` / `make_passwords_vector` sample from it with `rand::rng()` → `main` picks an output branch.
+Flow is linear and each step happens once: parse args with clap 4 derive (`Arguments` struct) → `make_dictionary` builds the character set as a `Vec<char>` → `make_passwords` samples `number.unwrap_or(1)` passwords of `length` from it with `rand::rng()` → `render` turns them into the output text (JSON or text) → `run` writes that to stdout or the `--output-file`. Errors from `run` are printed as `pgen: <error>` with exit code 1.
 
 Key behaviours to preserve when editing:
 
-- **Dictionary precedence**: `-d/--dictionary` wins over `-c/--complexity`. With neither, the full set (upper + lower + digits + symbols) is used. Complexity is validated by clap to the range 1..=4 and each level is a superset of the one below.
-- **Sampling is by character, not by byte**: `make_password` collects the dictionary into chars first, so a custom dictionary with multibyte characters works (there is a test for it).
-- **Output matrix in `main`**: four branches from two independent flags, `--number` (single vs. multi) and `--output-file` (stdout vs. file), each further split on `--json`. Text mode prints `### PASSWORD N ###` headers; JSON mode always emits a JSON array, even for a single password. Any new output option has to be threaded through all of these branches or the matrix should be refactored first.
-- **File output** is always relative to the current working directory (`make_file_from_cwd`), not to the path given.
+- **Dictionary precedence**: `-d/--dictionary` wins over `-c/--complexity`. With neither, the full set (upper + lower + digits + symbols) is used. Complexity is validated by clap to the range 1..=4 and each level is a superset of the one below; an empty `-d` is a clap usage error.
+- **Sampling is by character, not by byte**: the dictionary is a `Vec<char>`, so a custom dictionary with multibyte characters works (there is a test for it).
+- **Output format** is the one place both modes are rendered (`render`, with tests): JSON is always a pretty array, even for one password; text is one `### PASSWORD ###` block per password followed by a blank line, numbered (`### PASSWORD N ###`) only when `--number` was given, even for `-n 1`. A new output option goes into `render`, not into `run`.
+- **File output**: a relative `--output-file` lands in the current working directory, an absolute one is written where it says; nothing confines it.
 - The README's `pgen -h` block is the de facto spec for CLI flags; update it when flags change.

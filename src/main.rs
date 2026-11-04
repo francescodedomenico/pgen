@@ -1,8 +1,7 @@
 use clap::Parser;
 use rand::{RngExt, rngs::ThreadRng};
-use std::env;
 use std::fs::File;
-use std::io::Write;
+use std::io::{self, Write};
 
 #[derive(Parser, Default, Debug)]
 #[command(
@@ -19,14 +18,14 @@ struct Arguments {
     #[arg(short, long, value_parser = clap::value_parser!(u8).range(1..5), value_name = "COMPLEXITY")]
     complexity: Option<u8>,
     /// A custom dictionary for the password, if set the complexity parameter is ignored. In case you would like to use whitespaces in your dictionary ' ' use double quotes: -d "aAb _1"
-    #[arg(short, long, value_name = "DICTIONARY")]
+    #[arg(short, long, value_name = "DICTIONARY", value_parser = clap::builder::NonEmptyStringValueParser::new())]
     dictionary: Option<String>,
 
     /// Number of passwords to be generated
     #[arg(short, long, value_name = "NUMBER")]
     number: Option<u64>,
 
-    /// Optional: writes the generated password/passwords into the specified file in the current working directory
+    /// Optional: writes the generated password/passwords into the specified file (a relative path is resolved from the current working directory)
     #[arg(short, long, value_name = "OUTPUT_FILE")]
     output_file: Option<String>,
 
@@ -35,115 +34,95 @@ struct Arguments {
     json: bool,
 }
 
-fn make_dictionary(args: &Arguments) -> String {
+/// The characters a password is drawn from: the custom dictionary as given,
+/// or the predefined levels (each a superset of the one below).
+fn make_dictionary(args: &Arguments) -> Vec<char> {
     const UPPERCASE: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     const LOWERCASE: &str = "abcdefghijklmnopqrstuvwxyz";
     const NUMBERS: &str = "0123456789";
     const SYMBOLS: &str = "\\|\"$%&/()='?^~";
-    let mut dictionary = String::new();
 
     if let Some(input_dictionary) = args.dictionary.as_deref() {
-        dictionary.push_str(input_dictionary);
-    } else {
-        // No complexity given: the full dictionary.
-        let complexity = args.complexity.unwrap_or(4);
-        if complexity >= 2 {
-            dictionary.push_str(UPPERCASE);
-        }
-        dictionary.push_str(LOWERCASE);
-        if complexity >= 3 {
-            dictionary.push_str(NUMBERS);
-        }
-        if complexity >= 4 {
-            dictionary.push_str(SYMBOLS);
-        }
+        return input_dictionary.chars().collect();
     }
-    dictionary
+    // No complexity given: the full dictionary.
+    let complexity = args.complexity.unwrap_or(4);
+    let mut dictionary = String::new();
+    if complexity >= 2 {
+        dictionary.push_str(UPPERCASE);
+    }
+    dictionary.push_str(LOWERCASE);
+    if complexity >= 3 {
+        dictionary.push_str(NUMBERS);
+    }
+    if complexity >= 4 {
+        dictionary.push_str(SYMBOLS);
+    }
+    dictionary.chars().collect()
 }
 
-fn make_password(args: &Arguments, dictionary: &str, rng: &mut ThreadRng) -> String {
-    // Sample whole characters, so a dictionary with multibyte characters never
-    // indexes into the middle of one.
-    let chars: Vec<char> = dictionary.chars().collect();
-    (0..args.length)
-        .map(|_| chars[rng.random_range(0..chars.len())])
+fn make_password(length: usize, dictionary: &[char], rng: &mut ThreadRng) -> String {
+    (0..length)
+        .map(|_| dictionary[rng.random_range(0..dictionary.len())])
         .collect()
 }
 
-fn make_passwords_vector(
-    input_number: u64,
-    args: &Arguments,
-    dictionary: &str,
+fn make_passwords(
+    count: u64,
+    length: usize,
+    dictionary: &[char],
     rng: &mut ThreadRng,
 ) -> Vec<String> {
-    (0..input_number)
-        .map(|_| make_password(args, dictionary, rng))
+    (0..count)
+        .map(|_| make_password(length, dictionary, rng))
         .collect()
 }
 
-fn make_file_from_cwd(file_name: &str) -> File {
-    let temp_directory = env::current_dir().unwrap();
-    let temp_file = temp_directory.join(file_name);
-    File::create(temp_file).unwrap()
+/// The output as written to stdout or the file: a pretty JSON array, or one
+/// `### PASSWORD ###` block per password (numbered when `--number` was given),
+/// each followed by a blank line.
+fn render(passwords: &[String], json: bool, numbered: bool) -> String {
+    if json {
+        let mut out = serde_json::to_string_pretty(passwords).expect("strings serialize");
+        out.push('\n');
+        return out;
+    }
+    passwords
+        .iter()
+        .enumerate()
+        .map(|(i, password)| {
+            if numbered {
+                format!("### PASSWORD {} ###\n{}\n\n", i + 1, password)
+            } else {
+                format!("### PASSWORD ###\n{}\n\n", password)
+            }
+        })
+        .collect()
+}
+
+fn run(args: &Arguments) -> io::Result<()> {
+    let dictionary = make_dictionary(args);
+    let mut rng = rand::rng();
+    let passwords = make_passwords(args.number.unwrap_or(1), args.length, &dictionary, &mut rng);
+    let output = render(&passwords, args.json, args.number.is_some());
+
+    // A relative --output-file lands in the current working directory; an
+    // absolute one is written where it says.
+    let mut sink: Box<dyn Write> = match args.output_file.as_deref() {
+        Some(path) => Box::new(
+            File::create(path).map_err(|e| io::Error::new(e.kind(), format!("{path}: {e}")))?,
+        ),
+        None => Box::new(io::stdout().lock()),
+    };
+    sink.write_all(output.as_bytes())?;
+    sink.flush()
 }
 
 fn main() {
     let args = Arguments::parse();
-    let dictionary: String = make_dictionary(&args);
-    let mut rng = rand::rng();
-    if let Some(input_number) = args.number {
-        // Multi password branch
-        if let Some(input_output_file) = args.output_file.as_deref() {
-            // File output branch
-            let mut file = make_file_from_cwd(input_output_file);
-            if args.json {
-                let passwords: Vec<String> =
-                    make_passwords_vector(input_number, &args, &dictionary, &mut rng);
-                let to_write_buffer: String = serde_json::to_string_pretty(&passwords).unwrap();
-                writeln!(&mut file, "{}", to_write_buffer).unwrap();
-            } else {
-                for i in 0..input_number {
-                    let password: String = make_password(&args, &dictionary, &mut rng);
-                    writeln!(&mut file, "### PASSWORD {} ###\n{}\n", i + 1, password).unwrap();
-                }
-            }
-        } else {
-            if args.json {
-                let passwords: Vec<String> =
-                    make_passwords_vector(input_number, &args, &dictionary, &mut rng);
-                let to_write_buffer: String = serde_json::to_string_pretty(&passwords).unwrap();
-                println!("{}", to_write_buffer);
-            } else {
-                for i in 0..input_number {
-                    let password: String = make_password(&args, &dictionary, &mut rng);
-                    println!("### PASSWORD {} ###\n{}\n", i + 1, password);
-                }
-            }
-        }
-    } else {
-        // Single password branch
-        let password: String = make_password(&args, &dictionary, &mut rng);
-        if let Some(input_output_file) = args.output_file.as_deref() {
-            // File output branch
-            let mut file = make_file_from_cwd(input_output_file);
-            if args.json {
-                // Json branch
-                let passwords: Vec<String> = make_passwords_vector(1, &args, &dictionary, &mut rng);
-                let to_write_buffer: String = serde_json::to_string_pretty(&passwords).unwrap();
-                writeln!(&mut file, "{}", to_write_buffer).unwrap();
-            } else {
-                writeln!(&mut file, "### PASSWORD ###\n{}\n", password).unwrap();
-            }
-        } else {
-            if args.json {
-                // Json branch
-                let passwords: Vec<String> = make_passwords_vector(1, &args, &dictionary, &mut rng);
-                let to_write_buffer: String = serde_json::to_string_pretty(&passwords).unwrap();
-                println!("{}", to_write_buffer);
-            } else {
-                println!("### PASSWORD ###\n{}\n", password);
-            }
-        }
+    if let Err(error) = run(&args) {
+        eprintln!("pgen: {error}");
+        std::process::exit(1);
     }
 }
 
@@ -162,16 +141,19 @@ mod tests {
         }
     }
 
+    fn dictionary_string(a: &Arguments) -> String {
+        make_dictionary(a).into_iter().collect()
+    }
+
     #[test]
     fn custom_dictionary_wins_over_complexity() {
-        let dictionary = make_dictionary(&args(8, Some(1), Some("xyz 1")));
-        assert_eq!(dictionary, "xyz 1");
+        assert_eq!(dictionary_string(&args(8, Some(1), Some("xyz 1"))), "xyz 1");
     }
 
     #[test]
     fn complexity_levels_grow_the_dictionary() {
         let level: Vec<String> = (1..=4)
-            .map(|c| make_dictionary(&args(8, Some(c), None)))
+            .map(|c| dictionary_string(&args(8, Some(c), None)))
             .collect();
         assert_eq!(level[0], "abcdefghijklmnopqrstuvwxyz");
         assert!(level[1].contains('A') && level[1].contains('a') && !level[1].contains('0'));
@@ -184,38 +166,61 @@ mod tests {
     #[test]
     fn no_complexity_means_the_full_dictionary() {
         assert_eq!(
-            make_dictionary(&args(8, None, None)),
-            make_dictionary(&args(8, Some(4), None))
+            dictionary_string(&args(8, None, None)),
+            dictionary_string(&args(8, Some(4), None))
         );
     }
 
     #[test]
     fn password_has_the_requested_length_and_only_dictionary_chars() {
-        let a = args(64, None, Some("ab1"));
-        let dictionary = make_dictionary(&a);
-        let mut rng = rand::rng();
-        let password = make_password(&a, &dictionary, &mut rng);
+        let dictionary = make_dictionary(&args(64, None, Some("ab1")));
+        let password = make_password(64, &dictionary, &mut rand::rng());
         assert_eq!(password.chars().count(), 64);
         assert!(password.chars().all(|c| "ab1".contains(c)));
     }
 
     #[test]
     fn multibyte_dictionary_chars_are_sampled_whole() {
-        let a = args(32, None, Some("äöü€"));
-        let dictionary = make_dictionary(&a);
-        let mut rng = rand::rng();
-        let password = make_password(&a, &dictionary, &mut rng);
+        let dictionary = make_dictionary(&args(32, None, Some("äöü€")));
+        let password = make_password(32, &dictionary, &mut rand::rng());
         assert_eq!(password.chars().count(), 32);
         assert!(password.chars().all(|c| "äöü€".contains(c)));
     }
 
     #[test]
-    fn passwords_vector_has_the_requested_count() {
-        let a = args(10, Some(3), None);
-        let dictionary = make_dictionary(&a);
-        let mut rng = rand::rng();
-        let passwords = make_passwords_vector(5, &a, &dictionary, &mut rng);
+    fn empty_custom_dictionary_is_refused_at_parse_time() {
+        let parsed = Arguments::try_parse_from(["pgen", "-l", "8", "-d", ""]);
+        assert!(
+            parsed.is_err(),
+            "an empty dictionary must be a usage error, not a panic"
+        );
+    }
+
+    #[test]
+    fn passwords_have_the_requested_count() {
+        let dictionary = make_dictionary(&args(10, Some(3), None));
+        let passwords = make_passwords(5, 10, &dictionary, &mut rand::rng());
         assert_eq!(passwords.len(), 5);
         assert!(passwords.iter().all(|p| p.len() == 10));
+    }
+
+    #[test]
+    fn text_output_is_one_block_per_password_numbered_only_with_number() {
+        let one = vec!["abc".to_string()];
+        assert_eq!(render(&one, false, false), "### PASSWORD ###\nabc\n\n");
+        assert_eq!(render(&one, false, true), "### PASSWORD 1 ###\nabc\n\n");
+        let two = vec!["abc".to_string(), "def".to_string()];
+        assert_eq!(
+            render(&two, false, true),
+            "### PASSWORD 1 ###\nabc\n\n### PASSWORD 2 ###\ndef\n\n"
+        );
+    }
+
+    #[test]
+    fn json_output_is_a_pretty_array_even_for_one_password() {
+        let one = vec!["a\"b".to_string()];
+        assert_eq!(render(&one, true, false), "[\n  \"a\\\"b\"\n]\n");
+        let parsed: Vec<String> = serde_json::from_str(&render(&one, true, true)).unwrap();
+        assert_eq!(parsed, one);
     }
 }
