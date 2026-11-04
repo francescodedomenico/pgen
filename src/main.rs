@@ -19,7 +19,7 @@ struct Arguments {
     #[arg(short, long, value_parser = clap::value_parser!(u8).range(1..5), value_name = "COMPLEXITY")]
     complexity: Option<u8>,
     /// A custom dictionary for the password, if set the complexity parameter is ignored. In case you would like to use whitespaces in your dictionary ' ' use double quotes: -d "aAb _1"
-    #[arg(short, long, value_name = "DICTIONARY")]
+    #[arg(short, long, value_name = "DICTIONARY", value_parser = clap::builder::NonEmptyStringValueParser::new())]
     dictionary: Option<String>,
 
     /// Number of passwords to be generated
@@ -207,6 +207,15 @@ mod tests {
         let password = make_password(&a, &dictionary, &mut rng);
         assert_eq!(password.chars().count(), 32);
         assert!(password.chars().all(|c| "äöü€".contains(c)));
+    }
+
+    #[test]
+    fn empty_custom_dictionary_is_refused_at_parse_time() {
+        let parsed = Arguments::try_parse_from(["pgen", "-l", "8", "-d", ""]);
+        assert!(
+            parsed.is_err(),
+            "an empty dictionary must be a usage error, not a panic"
+        );
     }
 
     #[test]
