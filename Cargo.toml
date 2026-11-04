@@ -1,6 +1,6 @@
 [package]
 name = "pgen"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 # Minimum supported Rust: what clap 4.6 and rand 0.10 need; CI checks it.
 rust-version = "1.85"
