@@ -42,6 +42,10 @@ jobs:
 
   release-plz-pr:
     name: open or refresh the release PR
+    # After the release job: when the merge of a release PR lands, the tag must
+    # exist before the next release PR is computed, or this job compares against
+    # the previous tag and opens a PR for a version nobody asked for.
+    needs: release-plz-release
     runs-on: ubuntu-latest
     permissions:
       contents: write

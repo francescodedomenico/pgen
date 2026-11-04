@@ -20,3 +20,20 @@ pr_labels = ["release"]
 semver_check = false
 dependencies_update = false
 changelog_update = true
+
+# What the generated CHANGELOG.md section shows. Only user-facing changes:
+# feat under Added, fix under Fixed, perf under Changed. Merge commits and
+# the housekeeping types (chore, ci, docs, refactor, test, style, build) are
+# left out; a breaking change is kept whatever its type. Untyped commits
+# fall under Other so they are noticed. The version bump itself still counts
+# every commit (any commit on main is at least a patch).
+[changelog]
+protect_breaking_commits = true
+commit_parsers = [
+    { message = "^feat", group = "added" },
+    { message = "^fix", group = "fixed" },
+    { message = "^perf", group = "changed" },
+    { message = "^(chore|ci|docs|refactor|test|style|build)(\\(.*\\))?!?:", skip = true },
+    { message = "^Merge ", skip = true },
+    { message = "^.*", group = "other" },
+]
