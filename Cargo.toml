@@ -4,6 +4,13 @@ version = "0.1.2"
 edition = "2024"
 # Minimum supported Rust: what clap 4.6 and rand 0.10 need; CI checks it.
 rust-version = "1.85"
+# What makes up a release, and therefore what release-plz watches: a commit
+# that touches only files outside this list (workflows, dev scripts, scanner
+# configs, tests, docs) opens no release PR and bumps no version.
+include = ["src/**", "Cargo.toml", "Cargo.lock", "LICENSE"]
+# Cargo would add the README to the package on its own; the release archives
+# copy it from the repo instead (dev/package.sh), so a README edit is no release.
+readme = false
 description = "A very simple and very fast command-line password generator"
 license = "Apache-2.0"
 repository = "https://github.com/francescodedomenico/pgen"
