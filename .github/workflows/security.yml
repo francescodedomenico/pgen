@@ -46,7 +46,7 @@ jobs:
 
       # Upload even when the scan found something, but not when the scanner never
       # ran (an image pull failure): a missing file would hide the real error.
-      - uses: github/codeql-action/upload-sarif@v3
+      - uses: github/codeql-action/upload-sarif@v4
         if: always() && hashFiles('semgrep.sarif') != ''
         with:
           sarif_file: semgrep.sarif
@@ -80,7 +80,7 @@ jobs:
           severity-cutoff: high
           output-format: sarif
 
-      - uses: github/codeql-action/upload-sarif@v3
+      - uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: ${{ steps.scan.outputs.sarif }}
@@ -107,7 +107,7 @@ jobs:
 
       # Upload even when the scan found something, but not when the scanner never
       # ran (an image pull failure): a missing file would hide the real error.
-      - uses: github/codeql-action/upload-sarif@v3
+      - uses: github/codeql-action/upload-sarif@v4
         if: always() && hashFiles('gitleaks.sarif') != ''
         with:
           sarif_file: gitleaks.sarif
